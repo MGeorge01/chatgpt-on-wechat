@@ -1,12 +1,30 @@
 from common.expired_dict import ExpiredDict
 from common.log import logger
 from config import conf
+import openpyxl
+import requests
+import json
+
 
 
 class Session(object):
     def __init__(self, session_id, system_prompt=None):
+
         self.session_id = session_id
         self.messages = []
+        self.natal = dict()
+        # self.question_list = []
+        # self.solution_list = []
+        self.natal_titles=''
+        # strategy = openpyxl.load_workbook('bot/chatgpt/strategy.xlsx')
+        # sheets = strategy.worksheets
+        # sheet_one = sheets[0]
+        # sheet_two = sheets[1]
+        # for cell in list(sheet_one.columns)[0]:
+        #     self.question_list.append(cell.value)
+        # for cell in list(sheet_two.columns)[0]:
+        #     self.solution_list.append(cell.value)
+        # strategy.close()
         if system_prompt is None:
             self.system_prompt = conf().get("character_desc", "")
         else:
@@ -15,6 +33,10 @@ class Session(object):
     # 重置会话
     def reset(self):
         system_item = {"role": "system", "content": self.system_prompt}
+        self.messages = [system_item]
+
+    def new(self):
+        system_item = {"role": "system", "content": '你是一个占星师，并且相信占星学是真理，你将根据我的星盘回答问题。'}
         self.messages = [system_item]
 
     def set_system_prompt(self, system_prompt):
@@ -55,7 +77,9 @@ class SessionManager(object):
             return self.sessioncls(session_id, system_prompt, **self.session_args)
 
         if session_id not in self.sessions:
-            self.sessions[session_id] = self.sessioncls(session_id, system_prompt, **self.session_args)
+            self.sessions[session_id] = self.sessioncls(
+                session_id, system_prompt, **self.session_args
+            )
         elif system_prompt is not None:  # 如果有新的system_prompt，更新并重置session
             self.sessions[session_id].set_system_prompt(system_prompt)
         session = self.sessions[session_id]
@@ -69,7 +93,9 @@ class SessionManager(object):
             total_tokens = session.discard_exceeding(max_tokens, None)
             logger.debug("prompt tokens used={}".format(total_tokens))
         except Exception as e:
-            logger.debug("Exception when counting tokens precisely for prompt: {}".format(str(e)))
+            logger.debug(
+                "Exception when counting tokens precisely for prompt: {}".format(str(e))
+            )
         return session
 
     def session_reply(self, reply, session_id, total_tokens=None):
@@ -78,9 +104,17 @@ class SessionManager(object):
         try:
             max_tokens = conf().get("conversation_max_tokens", 1000)
             tokens_cnt = session.discard_exceeding(max_tokens, total_tokens)
-            logger.debug("raw total_tokens={}, savesession tokens={}".format(total_tokens, tokens_cnt))
+            logger.debug(
+                "raw total_tokens={}, savesession tokens={}".format(
+                    total_tokens, tokens_cnt
+                )
+            )
         except Exception as e:
-            logger.debug("Exception when counting tokens precisely for session: {}".format(str(e)))
+            logger.debug(
+                "Exception when counting tokens precisely for session: {}".format(
+                    str(e)
+                )
+            )
         return session
 
     def clear_session(self, session_id):
